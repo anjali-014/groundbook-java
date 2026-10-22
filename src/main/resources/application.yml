@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: groundbook
+  datasource:
+    url: jdbc:h2:file:./data/groundbook
+  sql:
+    init:
+      mode: always
+
+server:
+  address: 127.0.0.1
+  port: 8080
+
+seed-dir: seed
