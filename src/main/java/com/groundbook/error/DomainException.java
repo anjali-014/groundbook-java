@@ -4,7 +4,7 @@ import java.util.Map;
 
 /**
  * A refusal the domain gives: thrown by a service, turned into a ProblemDetail once, by {@link ApiExceptionHandler}.
- * Unchecked.
+ * Unchecked, so a refusal inside a transaction rolls it back.
  */
 public abstract class DomainException extends RuntimeException {
 

@@ -126,7 +126,7 @@ public class BookingService {
      * A shadow may not clash with the shadow of any live booking on the same ground and date; the booking itself
      * (id `self`, 0 for a new one) is left out.
      */
-    private void refuseClashes(long venueId, String ground, Instant from, Shadow held, long self) {
+    public void refuseClashes(long venueId, String ground, Instant from, Shadow held, long self) {
         Instant now = clock.instant();
         List<Map<String, Object>> clashes = bookings.onDay(venueId, ground, LocalDate.ofInstant(from, ZoneOffset.UTC))
                 .stream()
@@ -144,11 +144,11 @@ public class BookingService {
         }
     }
 
-    private Shadow shadowOf(BookingRepository.Row b) {
+    public Shadow shadowOf(BookingRepository.Row b) {
         return groundService.shadow(b.from(), b.to(), b.setupMinutes(), b.teardownMinutes());
     }
 
-    private BookingRepository.Row find(String venue, String bookingId) {
+    public BookingRepository.Row find(String venue, String bookingId) {
         long venueId = venues.idOf(venue).orElseThrow();
                 return BookingIds.parse(bookingId).flatMap(id -> bookings.find(venueId, id))
                 .orElseThrow(() -> new NoSuchBooking(bookingId));
@@ -162,7 +162,16 @@ public class BookingService {
      * Checks a slot in order - the ground, the event type, `to` after `from`, 30 minutes to 12 hours, not in the past,
      * one date, and the shadow inside that weekday's hours - and answers its shadow.
      */
-    private Shadow slot(long venueId, String venue, String ground, String event, Instant from, Instant to) {
+        /**
+     * Checks a slot in order - the ground, the event type, `to` after `from`, 30 minutes to 12 hours, not in the past,
+     * one date, and the shadow inside that weekday's hours - and answers its shadow.
+     */
+    public Shadow slot(long venueId, String venue, String ground, String event, Instant from, Instant to) {
+        // 1. Missing 'to' parameter is a validation failure naming the field
+        if (to == null) {
+            throw new InvalidRequest("to", "must not be null");
+        }
+
         var g = grounds.one(venueId, ground)
                 .orElseThrow(() -> new NoSuchGround(venue, ground));
         
@@ -171,15 +180,24 @@ public class BookingService {
                 .findFirst()
                 .orElseThrow(() -> new NoSuchEventType(event));
 
+        // 2. Chronological sequence check ('to before from') is bad-interval
         if (!to.isAfter(from)) {
             throw new BadInterval("to must be after from");
         }
 
         Duration duration = Duration.between(from, to);
-        if (duration.toMinutes() < 30 || duration.toMinutes() > 720) {
+        
+        // 3. Short duration (under 30 minutes) is a validation failure naming the field
+        if (duration.toMinutes() < 30) {
+            throw new InvalidRequest("to", "must be at least 30 minutes");
+        }
+        
+        // 4. Excessively long duration remains a bad-interval failure
+        if (duration.toMinutes() > 720) {
             throw new BadInterval("Duration must be between 30 minutes and 12 hours");
         }
 
+        // 5. Booking in the past remains a bad-interval failure
         Instant now = now();
         if (from.isBefore(now)) {
             throw new BadInterval("Cannot book in the past");
@@ -197,12 +215,11 @@ public class BookingService {
         LocalTime shadowStart = LocalTime.ofInstant(shadow.from(), ZoneOffset.UTC);
         LocalTime shadowEnd = LocalTime.ofInstant(shadow.to(), ZoneOffset.UTC);
 
-    
-         if (shadowStart.isBefore(hours[0]) || shadowEnd.isAfter(hours[1])) {
+        if (shadowStart.isBefore(hours[0]) || shadowEnd.isAfter(hours[1])) {
             throw new BadInterval("Shadow falls outside ground opening hours", hours[0], hours[1]);
         }
 
-        
         return shadow;
     }
+
 }

@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS event_types (
 
 -- A club's request for a slot. Its shadow is not stored: it is worked out on read from the event type. The club's
 -- name is kept and never sent back. It also keeps confirmed_at, cancelled_at, and late_cancel when it was cancelled after its
--- slot began.
+-- slot began, then moved_at and the interval before the last move.
 CREATE TABLE IF NOT EXISTS bookings (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
     venue_id      BIGINT                   NOT NULL REFERENCES venues (id),
@@ -45,5 +45,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     hold_until    TIMESTAMP WITH TIME ZONE NOT NULL,
     confirmed_at  TIMESTAMP WITH TIME ZONE,
     cancelled_at  TIMESTAMP WITH TIME ZONE,
-    late_cancel   BOOLEAN                  NOT NULL DEFAULT FALSE
+    late_cancel   BOOLEAN                  NOT NULL DEFAULT FALSE,
+    moved_at      TIMESTAMP WITH TIME ZONE,
+    previous_from TIMESTAMP WITH TIME ZONE,
+    previous_to   TIMESTAMP WITH TIME ZONE
 );
