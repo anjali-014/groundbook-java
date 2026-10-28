@@ -30,6 +30,15 @@ public class BookingController {
       return ResponseEntity.created(URI.create("/bookings/" + made.bookingId())).body(made);
     }
 
+    @PostMapping("/bookings/{bookingId}/confirm")
+    public ConfirmResponse confirm(@PathVariable String bookingId) {
+                return bookings.confirm(VENUE, bookingId);
+    }
+
+    @PostMapping("/bookings/{bookingId}/cancel")
+    public CancelResponse cancel(@PathVariable String bookingId) {
+        return bookings.cancel(VENUE, bookingId);
+    }
 
         @GetMapping("/bookings/{bookingId}")
     public BookingView booking(@PathVariable String bookingId) {
