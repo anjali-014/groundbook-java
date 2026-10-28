@@ -50,3 +50,14 @@ CREATE TABLE IF NOT EXISTS bookings (
     previous_from TIMESTAMP WITH TIME ZONE,
     previous_to   TIMESTAMP WITH TIME ZONE
 );
+
+-- An audit trail of a booking's lifecycle transitions (requested, confirmed, moved, cancelled).
+CREATE TABLE IF NOT EXISTS events (
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    venue_id   BIGINT                   NOT NULL REFERENCES venues (id),
+    booking_id BIGINT                   NOT NULL REFERENCES bookings (id),
+    kind       VARCHAR(20)              NOT NULL,
+    at         TIMESTAMP WITH TIME ZONE NOT NULL,
+    actor_id   VARCHAR(40),
+    data       VARCHAR(1000)            NOT NULL
+);
