@@ -12,14 +12,13 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-
 
 /**
  * The one place that turns errors into a ProblemDetail (application/problem+json). The base class already answers
@@ -29,30 +28,43 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
-      @ExceptionHandler(DomainException.class)
+    @ExceptionHandler(DomainException.class)
     public ProblemDetail refusal(DomainException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(e.status()), e.getMessage());
         problem.setType(URI.create(e.type()));
-                problem.setTitle(e.title());
-        e.properties().forEach(problem::setProperty);
+        problem.setTitle(e.title());
+        
+        // Explicitly format the map property to matches 'clashesWith' for overlap checks
+        if ("/errors/overlap".equals(e.type())) {
+            Object errorsList = e.properties().get("errors");
+            if (errorsList == null) {
+                errorsList = e.properties().get("clashesWith");
+            }
+            problem.setProperty("clashesWith", errorsList);
+        } else {
+            if (e.properties() != null) {
+                e.properties().forEach(problem::setProperty);
+            }
+        }
+        
         return problem;
     }
 
-            /** A query value that does not fit its type - ?date=2026-13-40, ?date=saturday - is 400 /errors/validation. */
+    /** A query value that does not fit its type - ?date=2026-13-40, ?date=saturday - is 400 /errors/validation. */
     @Override
     protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException ex, HttpHeaders headers,
                                                         HttpStatusCode status, WebRequest request) {
-                                                                  String field = ex instanceof MethodArgumentTypeMismatchException m ? m.getName() : ex.getPropertyName();
-                return handleExceptionInternal(ex, validation(List.of(error(field, "'" + ex.getValue()
+        String field = ex instanceof MethodArgumentTypeMismatchException m ? m.getName() : ex.getPropertyName();
+        return handleExceptionInternal(ex, validation(List.of(error(field, "'" + ex.getValue()
                 + "' is not an allowed value"))), headers, HttpStatus.BAD_REQUEST, request);       
-   }
+    }
 
     /** A body that fails Bean Validation (@NotBlank, @NotNull): 400 naming every field. */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
                                                                   HttpHeaders headers, HttpStatusCode status,
                                                                   WebRequest request) {
-                                                                            List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
+        List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(f -> error(f.getField(), String.valueOf(f.getDefaultMessage()))).toList();
         return handleExceptionInternal(ex, validation(errors), headers, HttpStatus.BAD_REQUEST, request);
     }
@@ -61,11 +73,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
      * A body Jackson cannot read - {"from": "saturday two"} fails before Bean Validation ever runs - is still 400
      * /errors/validation, naming the field Jackson stopped at.
      */
-        @Override
+    @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
                                                                   HttpHeaders headers, HttpStatusCode status,
                                                                   WebRequest request) {                                                     
-                                                                            String field = "body";
+        String field = "body";
         if (ex.getCause() instanceof JsonMappingException json && !json.getPath().isEmpty()) {
             field = json.getPath().get(json.getPath().size() - 1).getFieldName();
         }
@@ -77,11 +89,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return Map.of("field", String.valueOf(field), "message", message);
     } 
 
-        private static ProblemDetail validation(List<Map<String, String>> errors) {
+    private static ProblemDetail validation(List<Map<String, String>> errors) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "The request is not valid");
         problem.setType(URI.create("/errors/validation"));
         problem.setTitle("Invalid request");
-                       problem.setProperty("errors", errors);
+        problem.setProperty("errors", errors);
         return problem;
     }
 }

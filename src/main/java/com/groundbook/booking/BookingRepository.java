@@ -15,22 +15,30 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class BookingRepository {
 
-    /** One booking, with its ground's code and its event type's code and buffers (its shadow comes from them). */
+    /**
+     * One booking, with its ground's code and its event type's code and buffers (its shadow comes from them), and how
+     * long a request holds the ground.
+     */
     public record Row(long id, String ground, String event, Instant from, Instant to, String state, int setupMinutes,
-                      int teardownMinutes) {
-     
+                      int teardownMinutes, Instant holdUntil) {
+
         public String bookingId() {
             return BookingIds.format(id);
+        }
+
+        /** Live bookings hold the ground - confirmed ones, and requested ones whose hold has not lapsed. */
+        public boolean live(Instant now) {
+            return "confirmed".equals(state) || "requested".equals(state) && now.isBefore(holdUntil);
         }
     }
 
     private static final String SELECT = """
             SELECT b.id, g.code AS ground, t.code AS event, b.from_at AS "from", b.to_at AS "to", b.state,
-                   t.setup_minutes, t.teardown_minutes
+                   t.setup_minutes, t.teardown_minutes, b.hold_until
             FROM bookings b JOIN grounds g ON g.id = b.ground_id JOIN event_types t ON t.id = b.event_type_id
             WHERE b.venue_id = ?""";
 
-      private final JdbcClient jdbc;
+    private final JdbcClient jdbc;
 
     public BookingRepository(JdbcClient jdbc) {
         this.jdbc = jdbc;
@@ -40,17 +48,17 @@ public class BookingRepository {
     public long insert(long venueId, String ground, String event, String club, Instant from, Instant to,
                        Instant requestedAt, Instant holdUntil) {
         KeyHolder key = new GeneratedKeyHolder();
-                jdbc.sql("""
-                        INSERT INTO bookings (venue_id, ground_id, event_type_id, club_name, from_at, to_at, state,
-                                              requested_at, hold_until)
-                        SELECT ?, g.id, t.id, ?, ?, ?, 'requested', ?, ?
-                        FROM grounds g JOIN event_types t ON t.venue_id = g.venue_id
-                        WHERE g.venue_id = ? AND g.code = ? AND t.code = ?""")
+        jdbc.sql("""
+                INSERT INTO bookings (venue_id, ground_id, event_type_id, club_name, from_at, to_at, state,
+                                      requested_at, hold_until)
+                SELECT ?, g.id, t.id, ?, ?, ?, 'requested', ?, ?
+                FROM grounds g JOIN event_types t ON t.venue_id = g.venue_id
+                WHERE g.venue_id = ? AND g.code = ? AND t.code = ?""")
                 .params(venueId, club, from, to, requestedAt, holdUntil, venueId, ground, event).update(key, "id");
-                        return key.getKeyAs(Long.class);
+        return key.getKeyAs(Long.class);
     }
 
-        public void confirm(long id, Instant at) {
+    public void confirm(long id, Instant at) {
         jdbc.sql("UPDATE bookings SET state = 'confirmed', confirmed_at = ? WHERE id = ?").params(at, id).update();
     }
 
@@ -65,7 +73,7 @@ public class BookingRepository {
 
     /** A ground's bookings that start on this date (UTC), in `from` order. */
     public List<Row> onDay(long venueId, String ground, LocalDate day) {
-              return jdbc.sql(SELECT + " AND g.code = ? AND b.from_at >= ? AND b.from_at < ? ORDER BY b.from_at")
+        return jdbc.sql(SELECT + " AND g.code = ? AND b.from_at >= ? AND b.from_at < ? ORDER BY b.from_at")
                 .params(venueId, ground, day.atStartOfDay().toInstant(ZoneOffset.UTC),
                         day.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC))
                 .query(Row.class).list();
