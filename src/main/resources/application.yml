@@ -12,3 +12,4 @@ server:
   port: 8080
 
 seed-dir: seed
+hold-hours: 24
