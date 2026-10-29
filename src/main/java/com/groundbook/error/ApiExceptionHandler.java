@@ -4,6 +4,9 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -19,14 +22,18 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.groundbook.config.RequestIdFilter;
 
 /**
  * The one place that turns errors into a ProblemDetail (application/problem+json). The base class already answers
  * Spring's own errors - an unknown path, a wrong method - as ProblemDetails; this adds the domain refusals and the 
- * requests that are not valid: a bad query value, a body that fails Bean Validation, a body Jackson cannot read.
+ * requests that are not valid: a bad query value, a body that fails Bean Validation, a body Jackson cannot read -
+ * and every unexpected error.
  */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler(DomainException.class)
     public ProblemDetail refusal(DomainException e) {
@@ -34,7 +41,6 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setType(URI.create(e.type()));
         problem.setTitle(e.title());
         
-        // Explicitly format the map property to matches 'clashesWith' for overlap checks
         if ("/errors/overlap".equals(e.type())) {
             Object errorsList = e.properties().get("errors");
             if (errorsList == null) {
@@ -47,6 +53,22 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             }
         }
         
+        return problem;
+    }
+
+    /**
+     * Anything else that goes wrong is a 500 with a generic detail - never the exception's message or a stack
+     * trace - and the request's id, which the log line carries too.
+     */
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail unexpected(Exception e) {
+        String requestId = MDC.get(RequestIdFilter.KEY);
+        log.error("unexpected error requestId={}", requestId, e);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Something went wrong on our side; quote the request id if you report it");
+        problem.setType(URI.create("/errors/internal"));
+        problem.setTitle("Internal error");
+        problem.setProperty("requestId", requestId);
         return problem;
     }
 
