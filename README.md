@@ -1,10 +1,23 @@
-# GroundBook (Java)
+# GroundBook
+
+Four grounds and one booking book: every slot with the buffers around it, so no two clubs ever meet at the gate.
+
+## Run it in a container
+
+You need Docker and nothing else: the image builds the app itself. From this folder:
+
+    docker build -t groundbook .
+    docker run -p 8080:8080 groundbook
+
+Open http://localhost:8080/ for the day strip - or http://<the office PC's IP>:8080/ from Sabu's gate tablet.
+`http://localhost:8080/actuator/health` answers `{"status":"UP"}` while the app is up and can reach its database.
+
+<!-- learntube:start -->
+---
 
 [![tests](https://github.com/anjali-014/groundbook-java/actions/workflows/tests.yml/badge.svg)](https://github.com/anjali-014/groundbook-java/actions/workflows/tests.yml)
 
-A municipal sports complex: bookings with setup and teardown buffers that may never overlap.
-
-## Progress
+### Progress
 
 - [x] Ticket 1 · The complex, as a day you can look at
 - [x] Ticket 2 · A club asks for a slot
@@ -14,20 +27,8 @@ A municipal sports complex: bookings with setup and teardown buffers that may ne
 - [x] Ticket 6 · A planner nobody can erase
 - [x] Ticket 7 · One file becomes an app
 - [x] Ticket 8 · The rule table, and then the rule changes
-- [ ] Ticket 9 · It runs on the office machine
+- [x] Ticket 9 · It runs on the office machine
 - [ ] Ticket 10 · It survives being switched off
 
-## Run it
-
-```bash
-./mvnw test               # the tests
-./mvnw spring-boot:run    # the app, on http://localhost:8080
-```
-
-## Built with
-
-Java 21 · Spring Boot · Maven · JUnit
-
----
-
 Built by Anjali Saini on [LearnTube Guided Projects](https://guidedprojects.learntube.ai).
+<!-- learntube:end -->
