@@ -4,6 +4,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
+ * The app's own settings, read once at start-up: application.yml gives the defaults, and an environment
+ * variable overrides each one. Spring's own settings - the database URL, the host and the port - stay under
+ * spring.datasource and server.
  * The app's own settings, read once at start-up from application.yml. Spring's own settings - the database
  * URL, the host and the port - stay under spring.datasource and server.
  *
