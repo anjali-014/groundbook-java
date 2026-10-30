@@ -7,7 +7,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
-
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 import com.groundbook.booking.BookingRepository;
@@ -44,6 +46,15 @@ public class GroundService {
         return new EventTypesView(eventTypes.all(venueId(venue)).stream()
                 .map(t -> new EventTypeView(t.code(), t.name(), t.setupMinutes(), t.teardownMinutes())).toList());
         }
+
+        /** Every event type's buffers, [setup, teardown] minutes, straight from the event_types rows. */
+    public Map<String, List<Integer>> buffers(String venue) {
+        Map<String, List<Integer>> buffers = new LinkedHashMap<>();
+                eventTypes.all(venueId(venue))
+                .forEach(t -> buffers.put(t.code(), List.of(t.setupMinutes(), t.teardownMinutes())));
+        return buffers;
+    }
+
    
     /**
      * A ground's day - by default today by the clock - with that weekday's hours and its bookings in `from` order,
